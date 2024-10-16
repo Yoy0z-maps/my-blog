@@ -1,217 +1,10 @@
 "use client";
-import { useRouter } from "next/navigation";
+import { createBoardingPass } from "@/utils/world/createBoardingPass";
 import { useEffect } from "react";
 
 // 전역 변수로 오버레이 요소를 저장
-let globalOverlay: HTMLDivElement | null = null;
-let tooltipCount = 0;
-
-// 오버레이 생성 함수
-function getOrCreateOverlay(): HTMLDivElement {
-  if (!globalOverlay) {
-    globalOverlay = document.createElement("div");
-    globalOverlay.style.position = "fixed";
-    globalOverlay.style.top = "0";
-    globalOverlay.style.left = "0";
-    globalOverlay.style.width = "100%";
-    globalOverlay.style.height = "100%";
-    globalOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
-    globalOverlay.style.opacity = "0";
-    globalOverlay.style.transition = "opacity 0.3s ease-out";
-    globalOverlay.style.pointerEvents = "none";
-    globalOverlay.style.zIndex = "1000";
-    document.body.appendChild(globalOverlay);
-  }
-  return globalOverlay;
-}
-
-function createTooltip(e: MouseEvent, countryName: string): HTMLDivElement {
-  const overlay = getOrCreateOverlay();
-  tooltipCount++;
-
-  const tooltip = document.createElement("div");
-  tooltip.classList.add("country-tooltip");
-  tooltip.style.width = "250px";
-  tooltip.style.backgroundColor = "#e6f2ff";
-  tooltip.style.borderRadius = "10px";
-  tooltip.style.boxShadow = "0 4px 8px rgba(0,0,0,0.1)";
-  tooltip.style.fontFamily = "Arial, sans-serif";
-
-  tooltip.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; padding-left: 15px; padding-right: 15px; padding-top: 8px; background-color: #003366; padding-bottom: 4px; border-radius:10px 10px 0px 0px">
-      <div style="font-size: 12px; color: #fff;">Boarding Pass</div>
-      <div style="font-size: 12px; color: #fff;">JH AIRLINES</div>
-    </div>
-    <!-- div id="line" style="display:flex; position: relative; height:5px; background-color: #12de23;"></div> -->
-    <div style="display: flex; justify-content: space-between; align-items: center; padding-left: 15px; padding-right: 60px">
-      <div style="font-size: 10px; color: #000000;">FROM</div>
-      <div style="font-size: 10px; color: #000000;">TO</div>
-    </div>
-    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 28px; color: #003366; margin-top: -10px; margin-bottom: 12px; padding-left: 15px; padding-right: 15px">
-      <div>KOR</div>
-      <div style="font-size: 30px;">✈</div>
-      <div>CHN</div>
-    </div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; padding-left: 15px; padding-right: 15px">
-      <div style="display: flex; flex-direction: column; align-items:center; justify-content: center;">
-        <div style="font-size: 10px; color: #000000;">FLIGHT</div>
-        <div style="font-size: 14px; color: #000000;">JH923</div>
-      </div>
-      <div style="display: flex; flex-direction: column; align-items:center; justify-content: center;">
-        <div style="font-size: 10px; color: #000000;">SEAT</div>
-        <div style="font-size: 14px; color: #000000;">J09</div>
-      </div>
-      <div style="display: flex; flex-direction: column; align-items:center; justify-content: center;">
-        <div style="font-size: 10px; color: #000000;">GATE</div>
-        <div style="font-size: 14px; color: #000000;">23</div>
-      </div>
-    </div>
-    <div style="display: flex; align-items:center; justify-content: start; padding-left:15px">
-      <div style="font-size: 10px; color: #000000;">DEP.TIME</div>
-      <div style="font-size: 12px; color: #000000; margin-left:4px;">${String(
-        new Date().getHours()
-      ).padStart(2, "0")}:${String(new Date().getMinutes()).padStart(
-    2,
-    "0"
-  )}</div>
-    </div>
-    <div style="display: flex; align-items:center; justify-content: start; padding-left:15px">
-      <div style="font-size: 10px; color: #000000;">PASENGER</div>
-      <div style="font-size: 12px; color: #000000; margin-left:4px;">Y.OU</div>
-    </div>
-    <div style="text-align: center; margin-bottom: 1px;"><span style="font-size: 10px; color: #fff; background-color:#003366; padding-left:30px; padding-right:30px;">BUSINESS</span></div>
-    <div style="display:flex; flex-direction: column; align-items:center; justify-content: center; margin-bottom: 12px;">
-      <img src="/images/qr.png" alt="QR Code" style="width: 80px; height: 80px; margin-bottom:1px;">
-      <span style="font-size: 10px; color: #000000;">JH:0923/JH</span>
-    </div>
-  `;
-
-  const closeButton = document.createElement("button");
-  closeButton.innerHTML = "×";
-  closeButton.style.position = "absolute";
-  closeButton.style.top = "10px";
-  closeButton.style.right = "10px";
-  closeButton.style.background = "none";
-  closeButton.style.border = "none";
-  closeButton.style.fontSize = "20px";
-  closeButton.style.cursor = "pointer";
-  closeButton.onclick = (event) => {
-    event.stopPropagation();
-    tooltip.style.opacity = "0";
-    tooltip.style.transform = "scale(0)";
-    setTimeout(() => {
-      if (tooltip.parentNode) {
-        tooltip.parentNode.removeChild(tooltip);
-      }
-      tooltipCount--;
-      if (tooltipCount === 0 && overlay.parentNode) {
-        overlay.style.opacity = "0";
-        setTimeout(() => {
-          if (overlay.parentNode) {
-            overlay.parentNode.removeChild(overlay);
-          }
-          globalOverlay = null;
-        }, 300);
-      }
-    }, 300);
-  };
-  tooltip.appendChild(closeButton);
-
-  document.body.appendChild(tooltip);
-  tooltip.style.position = "absolute";
-  tooltip.style.left = `${e.pageX - tooltip.offsetWidth / 2}px`;
-  tooltip.style.top = `${e.pageY - tooltip.offsetHeight - 10}px`;
-  tooltip.style.opacity = "0";
-  tooltip.style.transform = "scale(0)";
-  tooltip.style.transition = "all 0.3s ease-out";
-  tooltip.style.zIndex = "1001";
-
-  setTimeout(() => {
-    tooltip.style.opacity = "1";
-    tooltip.style.transform = "scale(1)";
-    overlay.style.opacity = "1";
-  }, 0);
-
-  return tooltip;
-}
-
-// // 말풍선 생성
-// function createTooltip(e: MouseEvent, text: string): HTMLDivElement {
-//   const overlay = getOrCreateOverlay();
-//   tooltipCount++;
-
-//   const tooltip = document.createElement("div");
-//   tooltip.classList.add("country-tooltip");
-//   tooltip.style.display = "block";
-//   tooltip.style.position = "absolute";
-//   tooltip.style.backgroundColor = "#fff";
-//   tooltip.style.border = "1px solid #ddd";
-//   tooltip.style.padding = "10px";
-//   tooltip.style.borderRadius = "10px";
-//   tooltip.style.width = "auto"; // width를 auto로 설정
-//   tooltip.style.maxWidth = "200px"; // 최대 너비를 설정
-//   tooltip.style.opacity = "0"; // 초기 투명도를 0으로 설정
-//   tooltip.style.transform = "scale(0)"; // 초기 크기를 0으로 설정
-//   tooltip.style.transition = "all 0.5s ease-out"; // 트랜지션 효과 추가
-//   // 텍스트 컨테이너 생성
-//   const textContainer = document.createElement("div");
-//   textContainer.innerHTML = text;
-//   tooltip.appendChild(textContainer);
-
-//   // 닫기 버튼 생성
-//   const closeButton = document.createElement("button");
-//   closeButton.innerHTML = "close";
-//   closeButton.style.color = "#33393f";
-//   closeButton.style.marginLeft = "10px";
-//   closeButton.style.padding = "2px 6px";
-//   closeButton.style.border = "none";
-//   closeButton.style.borderRadius = "50%";
-//   closeButton.style.backgroundColor = "#f0f0f0";
-//   closeButton.style.cursor = "pointer";
-//   closeButton.onclick = (event) => {
-//     event.stopPropagation(); // 이벤트 버블링 방지
-
-//     // 투명도와 크기를 변경하여 툴팁을 부드럽게 사라지게 함
-//     tooltip.style.opacity = "0";
-//     tooltip.style.transform = "scale(0)";
-
-//     // // 트랜지션이 완료된 후 요소 제거
-//     // setTimeout(() => {
-//     //   if (tooltip.parentNode) {
-//     //     tooltip.parentNode.removeChild(tooltip);
-//     //   }
-//     // }, 300); // 300ms는 트랜지션 지속 시간과 일치해야 합니다
-//     setTimeout(() => {
-//       if (tooltip.parentNode) {
-//         tooltip.parentNode.removeChild(tooltip);
-//       }
-//       tooltipCount--;
-//       if (tooltipCount === 0 && overlay.parentNode) {
-//         overlay.style.opacity = "0";
-//         setTimeout(() => {
-//           if (overlay.parentNode) {
-//             overlay.parentNode.removeChild(overlay);
-//           }
-//           globalOverlay = null;
-//         }, 300);
-//       }
-//     }, 300);
-//   };
-//   tooltip.appendChild(closeButton);
-
-//   document.body.appendChild(tooltip);
-//   // 툴팁의 크기를 계산하여 위치를 조정
-//   tooltip.style.left = `${e.pageX - tooltip.offsetWidth / 2}px`;
-//   tooltip.style.top = `${e.pageY - tooltip.offsetHeight}px`;
-//   // 투명도와 크기를 변경하여 툴팁을 부드럽게 나타나게 함
-//   setTimeout(() => {
-//     tooltip.style.opacity = "1";
-//     tooltip.style.transform = "scale(1)";
-//     overlay.style.opacity = "1";
-//     tooltip.style.zIndex = "1001";
-//   }, 0);
-//   return tooltip;
-// }
+const globalOverlay: HTMLDivElement | null = null;
+const boardingPassCount = 0;
 
 export default function Page() {
   // useEffect(() => {
@@ -266,11 +59,14 @@ export default function Page() {
 
     const handleClick = (e: MouseEvent) => {
       e.preventDefault();
-      createTooltip(e, "clicked");
+      createBoardingPass(e, "korea", boardingPassCount, globalOverlay);
     };
 
     countries.forEach((country) => {
       // json에서 country id를 통해 정보를 가져오는 것해야함
+      // 해야하는 것
+      // 1) 보딩패스 클리했을 때 페이지 이동
+      // 2) 보딩패스 클릭했을 때 country.id [country]로 전달
       country.addEventListener("click", handleClick);
       country.addEventListener("mouseover", function () {
         this.style.fill = "#F3F3F3";
